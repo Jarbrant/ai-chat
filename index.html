@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>AI Chat</title>
+
+  <!-- 🎨 STYLE -->
   <style>
     body {
       margin: 0;
@@ -24,6 +26,8 @@
       flex: 1;
       padding: 20px;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
 
     .message {
@@ -36,7 +40,6 @@
     .user {
       background: #2563eb;
       align-self: flex-end;
-      margin-left: auto;
     }
 
     .ai {
@@ -67,19 +70,18 @@
       color: white;
       cursor: pointer;
     }
-
-    button:hover {
-      background: #1d4ed8;
-    }
   </style>
 </head>
 
 <body>
 
+<!-- 🧠 HEADER -->
 <header>AI Chat</header>
 
+<!-- 💬 CHAT AREA -->
 <div id="chat"></div>
 
+<!-- ⌨️ INPUT -->
 <div id="inputArea">
   <input id="input" placeholder="Skriv något..." />
   <button onclick="send()">Skicka</button>
@@ -88,35 +90,72 @@
 <script>
 const chat = document.getElementById("chat");
 
+
+// ➕ Lägg till meddelande i UI
 function addMessage(text, type) {
   const div = document.createElement("div");
   div.className = "message " + type;
   div.innerText = text;
   chat.appendChild(div);
+
+  // scroll ner automatiskt
   chat.scrollTop = chat.scrollHeight;
 }
 
+
+// 🚀 HUVUDFUNKTION (SKICKA MEDDELANDE)
 async function send() {
+
+  // 📥 hämta input
   const input = document.getElementById("input");
   const text = input.value;
+
+  console.log("🟡 Sending:", text);
+
   if (!text) return;
 
+  // visa i chat
   addMessage(text, "user");
+
+  // rensa input
   input.value = "";
 
-  const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      prompt: text
-    })
-  });
+  try {
 
-  const data = await res.json();
-  addMessage(data.reply || "No response", "ai");
+    // 🌐 SKICKA TILL DIN WORKER
+    const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt: text   // ⚠️ viktigt: backend förväntar sig "prompt"
+      })
+    });
+
+    console.log("🟢 Response status:", res.status);
+
+    const data = await res.json();
+    console.log("🟢 Data:", data);
+
+    // 💬 visa AI svar
+    addMessage(data.reply || "⚠️ inget svar från AI", "ai");
+
+  } catch (err) {
+
+    console.error("🔴 ERROR:", err);
+
+    addMessage("❌ Fel vid kontakt med server", "ai");
+  }
 }
+
+
+// ⌨️ ENTER = skicka
+document.getElementById("input").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") {
+    send();
+  }
+});
 </script>
 
 </body>
