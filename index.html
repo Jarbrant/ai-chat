@@ -1,1 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Chat</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
+    header {
+      padding: 16px;
+      font-size: 20px;
+      font-weight: bold;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin-bottom: 12px;
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 12px;
+    }
+
+    .user {
+      background: #2563eb;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .ai {
+      background: #1e293b;
+      align-self: flex-start;
+    }
+
+    #inputArea {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #1e293b;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      margin-left: 10px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>AI Chat</header>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+  <input id="input" placeholder="Skriv något..." />
+  <button onclick="send()">Skicka</button>
+</div>
+
+<script>
+const chat = document.getElementById("chat");
+
+function addMessage(text, type) {
+  const div = document.createElement("div");
+  div.className = "message " + type;
+  div.innerText = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send() {
+  const input = document.getElementById("input");
+  const text = input.value;
+  if (!text) return;
+
+  addMessage(text, "user");
+  input.value = "";
+
+  const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt: text
+    })
+  });
+
+  const data = await res.json();
+  addMessage(data.reply || "No response", "ai");
+}
+</script>
+
+</body>
+</html>
