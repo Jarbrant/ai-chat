@@ -1,4 +1,4 @@
 name = "ai-chat"
-main = "src/index.ts"
+main = "index.js"
 compatibility_date = "2026-03-24"
-account_id = "c802fabfb6aff4d95b40f8038b681070"   # <-- se till att denna stämmer!
+account_id = "c802fabfb6aff4d95b40f8038b681070"
