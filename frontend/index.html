@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8">
-  <title>AI Chat</title>
+  <meta charset="UTF-8" />
+  <title>Personlig AI-chatt</title>
   <style>
-    body { font-family: sans-serif; background: #f3f3f3; }
-    #chatbox { max-width: 500px; margin: 3em auto; background: #fff; padding: 2em; border-radius: 12px; box-shadow: 0 2px 8px #ddd; }
+    body { background:#f3f3f3; }
+    #chatbox { max-width: 500px; margin: 2em auto; background: #fff; padding: 2em; border-radius: 12px; box-shadow: 0 2px 8px #ddd; }
     #messages { min-height: 200px; margin-bottom: 1em; }
     .bubble { display: block; max-width: 80%; margin: .5em 0; padding: 1em; border-radius: 12px; }
     .you { background: #d6edff; margin-left: auto; }
@@ -17,55 +17,60 @@
 </head>
 <body>
   <div id="chatbox">
+    <h2>Personlig AI-chatt</h2>
     <div id="messages"></div>
     <form id="chat-form" autocomplete="off">
-      <input id="chat-input" type="text" placeholder="Skriv ditt meddelande..." required>
+      <input id="chat-input" type="text" placeholder="Skriv ditt meddelande..." required />
       <button id="chat-send" type="submit">Skicka</button>
     </form>
   </div>
-  <script>
-    // ÄNDRA DEN HÄR URL:en till din Cloudflare Worker, om du har en custom domän!
-    const API_URL = "https://ai-chat.andersmenyit.workers.dev/";
+<script>
+  // Ändra nedan till din Cloudflare Worker URL om nödvändigt!
+  const API_URL = "https://ai-chat.andersmenyit.workers.dev/";
 
-    const messagesEl = document.getElementById('messages');
-    const formEl = document.getElementById('chat-form');
-    const inputEl = document.getElementById('chat-input');
+  // Starta chatt-historiken med "system"-roll (personlig AI)
+  let chatHistory = [
+    { role: "system", content: "Du är en personlig AI-assistent åt Jarbrant. Var hjälpsam och trevlig." }
+  ];
 
-    // Visa ett meddelande i chatten
-    function addBubble(text, who) {
-      const div = document.createElement('div');
-      div.className = 'bubble ' + who;
-      div.textContent = text;
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+  const messagesEl = document.getElementById('messages');
+  const formEl = document.getElementById('chat-form');
+  const inputEl = document.getElementById('chat-input');
+
+  function addBubble(text, who) {
+    const div = document.createElement('div');
+    div.className = 'bubble ' + who;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  formEl.onsubmit = async e => {
+    e.preventDefault();
+    const prompt = inputEl.value.trim();
+    if (!prompt) return;
+    addBubble(prompt, 'you');
+    chatHistory.push({ role: "user", content: prompt });
+    inputEl.value = '';
+    addBubble('...', 'ai');
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ messages: chatHistory })
+      });
+      const data = await response.json();
+      let aiMsg = data.choices?.[0]?.message?.content || "Inget svar från AI.";
+      chatHistory.push({ role: "assistant", content: aiMsg });
+      // Ta bort "..." och visa AI:ets riktiga svar
+      messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
+      addBubble(aiMsg.trim(), 'ai');
+    } catch (err) {
+      messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
+      addBubble("Fel vid kontakt med servern.", "ai");
     }
-
-    // Hantera att användaren skickar ett chattmeddelande
-    formEl.onsubmit = async (e) => {
-      e.preventDefault();
-      const prompt = inputEl.value;
-      addBubble(prompt, 'you');
-      inputEl.value = '';
-      addBubble('...', 'ai'); // Visa laddningsbubbla
-
-      // Skicka POST till Cloudflare Worker
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt })
-        });
-        const data = await response.json();
-        // Plocka ut AI:ets svar (anpassa om du använder annat API)
-        let aiMsg = data.choices?.[0]?.message?.content || "Inget svar från AI.";
-        // Ta bort laddningsbubblan och visa svaret
-        messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
-        addBubble(aiMsg.trim(), 'ai');
-      } catch (err) {
-        messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
-        addBubble("Fel vid kontakt med servern.", "ai");
-      }
-    };
-  </script>
+  };
+</script>
 </body>
 </html>
