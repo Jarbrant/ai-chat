@@ -1,76 +1,123 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Personlig AI-chatt</title>
+  <title>AI Chat</title>
   <style>
-    body { background:#f3f3f3; }
-    #chatbox { max-width: 500px; margin: 2em auto; background: #fff; padding: 2em; border-radius: 12px; box-shadow: 0 2px 8px #ddd; }
-    #messages { min-height: 200px; margin-bottom: 1em; }
-    .bubble { display: block; max-width: 80%; margin: .5em 0; padding: 1em; border-radius: 12px; }
-    .you { background: #d6edff; margin-left: auto; }
-    .ai { background: #e1fbe1; margin-right: auto; }
-    #chat-form { display: flex; gap: .5em; }
-    #chat-input { flex: 1; padding: .6em; border-radius: 6px; border: 1px solid #aaa; }
-    #chat-send { padding: 0 .8em; }
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      padding: 16px;
+      font-size: 20px;
+      font-weight: bold;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin-bottom: 12px;
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 12px;
+    }
+
+    .user {
+      background: #2563eb;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .ai {
+      background: #1e293b;
+      align-self: flex-start;
+    }
+
+    #inputArea {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #1e293b;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      margin-left: 10px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
   </style>
 </head>
+
 <body>
-  <div id="chatbox">
-    <h2>Personlig AI-chatt</h2>
-    <div id="messages"></div>
-    <form id="chat-form" autocomplete="off">
-      <input id="chat-input" type="text" placeholder="Skriv ditt meddelande..." required />
-      <button id="chat-send" type="submit">Skicka</button>
-    </form>
-  </div>
+
+<header>AI Chat</header>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+  <input id="input" placeholder="Skriv något..." />
+  <button onclick="send()">Skicka</button>
+</div>
+
 <script>
-  // Ändra nedan till din Cloudflare Worker URL om nödvändigt!
-  const API_URL = "https://ai-chat.andersmenyit.workers.dev/";
+const chat = document.getElementById("chat");
 
-  // Starta chatt-historiken med "system"-roll (personlig AI)
-  let chatHistory = [
-    { role: "system", content: "Du är en personlig AI-assistent åt Jarbrant. Var hjälpsam och trevlig." }
-  ];
+function addMessage(text, type) {
+  const div = document.createElement("div");
+  div.className = "message " + type;
+  div.innerText = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
 
-  const messagesEl = document.getElementById('messages');
-  const formEl = document.getElementById('chat-form');
-  const inputEl = document.getElementById('chat-input');
+async function send() {
+  const input = document.getElementById("input");
+  const text = input.value;
+  if (!text) return;
 
-  function addBubble(text, who) {
-    const div = document.createElement('div');
-    div.className = 'bubble ' + who;
-    div.textContent = text;
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  addMessage(text, "user");
+  input.value = "";
 
-  formEl.onsubmit = async e => {
-    e.preventDefault();
-    const prompt = inputEl.value.trim();
-    if (!prompt) return;
-    addBubble(prompt, 'you');
-    chatHistory.push({ role: "user", content: prompt });
-    inputEl.value = '';
-    addBubble('...', 'ai');
+  const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt: text
+    })
+  });
 
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ messages: chatHistory })
-      });
-      const data = await response.json();
-      let aiMsg = data.choices?.[0]?.message?.content || "Inget svar från AI.";
-      chatHistory.push({ role: "assistant", content: aiMsg });
-      // Ta bort "..." och visa AI:ets riktiga svar
-      messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
-      addBubble(aiMsg.trim(), 'ai');
-    } catch (err) {
-      messagesEl.removeChild(messagesEl.querySelector('.ai:last-child'));
-      addBubble("Fel vid kontakt med servern.", "ai");
-    }
-  };
+  const data = await res.json();
+  addMessage(data.reply || "No response", "ai");
+}
 </script>
+
 </body>
 </html>
