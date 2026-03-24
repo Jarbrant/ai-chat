@@ -2,46 +2,41 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <title>AI Chat</title>
+  <title>ai-chat</title>
   <style>
-    body { font-family: sans-serif; background: #eee; }
-    #chat { max-width: 500px; margin: 2rem auto; background: #fff; padding: 2rem; border-radius: 8px; }
-    #messages { min-height: 200px; margin-bottom: 1rem; }
-    .bubble { margin: .5rem 0; padding: .75rem; border-radius: 8px; max-width: 80%; }
-    .you   { background: #cce5ff; margin-left: auto; }
-    .ai    { background: #ddeccd; margin-right: auto; }
+    #chatbox { max-width: 500px; margin: 2em auto; }
+    #messages { background: #eee; padding: 1em; min-height: 150px; border-radius: 8px; }
+    .bubble { padding: 0.5em; margin: 0.5em 0; border-radius: 8px; }
+    .you { background: #d0ebff; text-align: right; }
+    .ai { background: #e6f4ea; text-align: left; }
   </style>
 </head>
 <body>
-  <div id="chat">
+  <div id="chatbox">
     <div id="messages"></div>
     <form id="form">
-      <input type="text" id="prompt" required autocomplete="off" placeholder="Skriv ett meddelande..." style="width:70%;">
+      <input id="input" type="text" placeholder="Skriv ditt meddelande..." required style="width:80%;">
       <button>Skicka</button>
     </form>
   </div>
   <script>
-    const form = document.getElementById('form');
-    const input = document.getElementById('prompt');
+    const api = "https://ai-chat.andersmenyit.workers.dev/"; // Byt till din Cloudflare worker-url om annan!
     const messages = document.getElementById('messages');
-
-    form.addEventListener('submit', async e => {
+    document.getElementById('form').onsubmit = async e => {
       e.preventDefault();
-      const prompt = input.value;
-      addMessage(prompt, 'you');
-      input.value = '';
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+      const text = document.getElementById('input').value;
+      addMsg(text, "you");
+      document.getElementById('input').value = '';
+      const res = await fetch(api, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ prompt: text })
       });
-      const data = await response.json();
-      // Anpassa nedan utifrån svaret OpenAI returnerar
-      const aiMsg = data.choices?.[0]?.message?.content || 'Inget svar';
-      addMessage(aiMsg, 'ai');
-    });
+      const data = await res.json();
+      addMsg(data.choices?.[0]?.message?.content || "Inget AI-svar", "ai");
+    };
 
-    function addMessage(text, who) {
+    function addMsg(text, who) {
       const div = document.createElement('div');
       div.className = `bubble ${who}`;
       div.textContent = text;
