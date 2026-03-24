@@ -1,1 +1,7 @@
+name = "ai-chat"
+main = "src/index.ts"    # byta till rätt entrypoint om din skiljer sig
+compatibility_date = "2026-03-24"
+account_id = "ditt_cloudflare_account_id"
 
+[vars]
+# Valfria variabler om du vill definiera fler
