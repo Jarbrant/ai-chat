@@ -84,19 +84,23 @@
 
 <body>
 
-<!-- 🧠 HEADER -->
 <header>AI Chat</header>
 
-<!-- 💬 CHAT AREA -->
-<div id="chat"></div>
+<!-- 🧠 WRAPPER -->
+<div id="app">
 
-<!-- ⌨️ INPUT -->
-<div id="inputArea">
-  <input id="input" placeholder="Skriv något..." />
-  <button id="sendBtn" onclick="send()">Skicka</button>
+  <!-- 💬 CHAT -->
+  <div id="chat"></div>
+
+  <!-- ✨ CENTER INPUT (startläge) -->
+  <div id="centerBox">
+    <input id="input" placeholder="Skriv något..." />
+    <button id="sendBtn" onclick="send()">Skicka</button>
+  </div>
+
 </div>
 
-<script>
+</body>
 
 /* =========================================================
    📦 STATE (minne i browsern)
