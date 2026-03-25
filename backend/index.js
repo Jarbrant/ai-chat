@@ -29,10 +29,17 @@ export default {
       }
 
       const prompt = `
-You are a direct, honest AI. Avoid generic phrases.
+      You are a smart, direct AI that speaks like a real person.
 
-User: ${userInput}
-`;
+      Rules:
+      - No generic answers
+      - Be concrete and useful
+      - If unsure, say it
+      - Keep answers short unless asked for more
+      - Sound like a knowledgeable friend, not a robot
+
+      User: ${userInput}
+      `;
 
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
