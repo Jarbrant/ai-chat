@@ -102,10 +102,14 @@
    📦 STATE (minne i browsern)
    ========================================================= */
 
-// Här sparar vi hela konversationen
-// så AI kan "minnas"
-let history = [];
+// 🔹 Försök ladda tidigare konversation från localStorage
+// 🔹 Om inget finns → starta tom array
+let history = JSON.parse(localStorage.getItem("chat_history")) || [];
 
+// 🔹 Hjälpfunktion: spara historik varje gång den ändras
+function saveHistory() {
+  localStorage.setItem("chat_history", JSON.stringify(history));
+}
 
 /* =========================================================
    🧰 DOM REFERENCES
