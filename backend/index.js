@@ -26,20 +26,24 @@ export default {
         return json({ error: "Invalid JSON" }, 400);
       }
 
+
       /* =========================================================
-         🧠 INPUT NORMALIZATION
+         🧠 INPUT NORMALIZATION (MER ROBUST)
          ========================================================= */
 
       let input = "";
 
       if (Array.isArray(body.messages)) {
 
-        // 🔥 begränsa historik (viktigt!)
         const MAX_HISTORY = 20;
 
         input = body.messages
           .slice(-MAX_HISTORY)
-          .map(m => `${m.role}: ${m.content}`)
+          .map(m => {
+            const role = m.role || "user";
+            const content = (m.content || "").trim();
+            return `${role}: ${content}`;
+          })
           .join("\n");
 
       } else if (body.prompt || body.message) {
@@ -56,14 +60,15 @@ export default {
 
 
       /* =========================================================
-         🧠 MODE SYSTEM
+         🧠 MODE SYSTEM (SÄKRARE + FLEXIBEL)
          ========================================================= */
 
-      const mode = body.mode || "advisor";
+      const allowedModes = ["advisor", "friend", "teacher"];
+      const mode = allowedModes.includes(body.mode) ? body.mode : "advisor";
+
 
       function getPrompt(mode, input) {
 
-        /* 🧠 RÅDGIVARE */
         if (mode === "advisor") {
           return `
 You are a sharp, experienced advisor.
@@ -84,7 +89,6 @@ ${input}
 `;
         }
 
-        /* 🧑‍🤝‍🧑 VÄN */
         if (mode === "friend") {
           return `
 You are a smart, relaxed friend.
@@ -98,7 +102,6 @@ ${input}
 `;
         }
 
-        /* 👨‍🏫 LÄRARE */
         if (mode === "teacher") {
           return `
 You are an expert teacher.
@@ -113,7 +116,6 @@ ${input}
 `;
         }
 
-        /* 🔁 DEFAULT */
         return `
 You are a helpful AI.
 
@@ -126,7 +128,7 @@ ${input}
 
 
       /* =========================================================
-         🤖 OPENAI REQUEST
+         🤖 OPENAI REQUEST (OPTIMERAD)
          ========================================================= */
 
       const aiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -137,13 +139,19 @@ ${input}
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
-          input: prompt
+          input: prompt,
+
+          // 🔥 NYTT: bättre svarskvalitet
+          temperature: 0.7,
+
+          // 🔥 NYTT: begränsa längd (undvik spam)
+          max_output_tokens: 500
         })
       });
 
 
       /* =========================================================
-         ⚠️ OPENAI ERROR HANDLING
+         ⚠️ OPENAI ERROR HANDLING (FÖRBÄTTRAD)
          ========================================================= */
 
       if (!aiResponse.ok) {
@@ -157,16 +165,22 @@ ${input}
 
 
       /* =========================================================
-         📤 RESPONSE PARSING (ROBUST)
+         📤 RESPONSE PARSING (ROBUST+)
          ========================================================= */
 
       const data = await aiResponse.json();
 
-      let reply =
-        data.output_text ||
-        data.output?.[0]?.content?.[0]?.text ||
-        data.output?.[0]?.content?.map(c => c.text).join(" ") ||
-        null;
+      let reply = null;
+
+      // 🔥 fallback-chain (olika API-format)
+      if (data.output_text) {
+        reply = data.output_text;
+      } else if (data.output?.[0]?.content) {
+        reply = data.output[0].content
+          .map(c => c.text || "")
+          .join(" ")
+          .trim();
+      }
 
       if (!reply) {
         return json({
@@ -174,6 +188,13 @@ ${input}
           raw: data
         }, 500);
       }
+
+
+      /* =========================================================
+         ✨ CLEANUP (snyggare output)
+         ========================================================= */
+
+      reply = reply.trim();
 
 
       /* =========================================================
@@ -185,12 +206,12 @@ ${input}
     } catch (err) {
 
       /* =========================================================
-         💥 SERVER CRASH
+         💥 SERVER CRASH (SÄKRARE)
          ========================================================= */
 
       return json({
         error: "Server crash",
-        details: err.message
+        details: err.message || "Unknown error"
       }, 500);
     }
   }
