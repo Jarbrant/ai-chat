@@ -36,6 +36,7 @@
       border-radius: 20px;
       color: white;
       cursor: pointer;
+      transition: 0.2s;
     }
 
     #modes button.active {
@@ -65,16 +66,7 @@
       flex-direction: column;
     }
 
-    #chat {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    /* 🔝 INPUT FIXED TOP */
+    /* 🔝 INPUT */
     #inputBar {
       position: sticky;
       top: 0;
@@ -111,11 +103,26 @@
       opacity: 0.5;
     }
 
+    #chat {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     .message {
       padding: 12px 16px;
       border-radius: 14px;
       max-width: 60%;
       line-height: 1.4;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .user {
@@ -141,9 +148,9 @@
 
 <!-- 🧭 MODES -->
 <div id="modes">
-  <button onclick="setMode('advisor')" class="active">Rådgivare</button>
-  <button onclick="setMode('friend')">Vän</button>
-  <button onclick="setMode('teacher')">Lärare</button>
+  <button data-mode="advisor" class="active">Rådgivare</button>
+  <button data-mode="friend">Vän</button>
+  <button data-mode="teacher">Lärare</button>
 </div>
 
 <!-- 🧠 FOCUS -->
@@ -188,18 +195,26 @@ const button = document.getElementById("sendBtn");
 const focus = document.getElementById("focusContent");
 
 /* =========================================================
-   🧭 MODE SWITCH
+   🧭 MODE SWITCH (FIXAD BUG)
    ========================================================= */
 
-function setMode(newMode) {
-  mode = newMode;
+document.querySelectorAll("#modes button").forEach(btn => {
+  btn.addEventListener("click", () => {
 
-  document.querySelectorAll("#modes button").forEach(btn => {
-    btn.classList.remove("active");
+    mode = btn.dataset.mode;
+
+    // 🔄 UI highlight
+    document.querySelectorAll("#modes button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // 🔥 VALFRITT: starta ny chatt vid byte
+    history = [];
+    saveHistory();
+    chat.innerHTML = "";
+
+    addMessage("Ny chatt: " + btn.innerText, "ai");
   });
-
-  event.target.classList.add("active");
-}
+});
 
 /* =========================================================
    💬 UI
@@ -211,13 +226,17 @@ function addMessage(text, type, extra = "") {
   div.innerText = text;
 
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+
+  // 🔥 stabil scroll
+  requestAnimationFrame(() => {
+    chat.scrollTop = chat.scrollHeight;
+  });
 
   return div;
 }
 
 /* =========================================================
-   🧠 FOCUS UPDATE
+   🧠 FOCUS (BASERAD PÅ USER INPUT)
    ========================================================= */
 
 function updateFocus(text) {
@@ -225,11 +244,10 @@ function updateFocus(text) {
 }
 
 /* =========================================================
-   🔄 LOAD HISTORY (SMART)
+   🔄 LOAD HISTORY
    ========================================================= */
 
-const MAX_VISIBLE = 20;
-history.slice(-MAX_VISIBLE).forEach(msg => {
+history.slice(-20).forEach(msg => {
   addMessage(msg.content, msg.role === "user" ? "user" : "ai");
 });
 
@@ -252,6 +270,9 @@ async function send() {
   if (!text) return;
 
   addMessage(text, "user");
+
+  // 🧠 uppdatera fokus direkt
+  updateFocus(text);
 
   history.push({ role: "user", content: text });
   saveHistory();
@@ -285,6 +306,7 @@ async function send() {
     loading.remove();
 
     if (data.reply) {
+
       addMessage(data.reply, "ai");
 
       history.push({
@@ -294,13 +316,14 @@ async function send() {
 
       saveHistory();
 
-      // 🧠 uppdatera fokus
-      updateFocus(data.reply);
+    } else {
+      addMessage("⚠️ Inget svar från AI", "ai");
     }
 
   } catch (err) {
     loading.remove();
     addMessage("❌ Kunde inte nå servern", "ai");
+    console.error(err);
   }
 
   input.disabled = false;
