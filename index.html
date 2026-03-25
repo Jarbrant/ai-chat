@@ -23,51 +23,61 @@
 
     #app {
       flex: 1;
-      position: relative;
+      display: flex;
+      flex-direction: column;
     }
 
     #chat {
-      padding: 20px;
+      flex: 1;
+      padding: 100px 20px 20px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      height: 100%;
     }
 
-    /* ✨ Center input */
+    /* 🧠 Input top */
     #centerBox {
-      position: absolute;
-      top: 50%;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      max-width: 800px;
       left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      width: 60%;
-      max-width: 600px;
-    }
-
-    /* 🔽 när chat startar */
-    body.chat-started #centerBox {
-      top: auto;
-      bottom: 10px;
       transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      z-index: 10;
     }
 
-    input {
+    /* ✍️ textarea */
+    textarea {
       flex: 1;
       padding: 14px;
-      border-radius: 10px;
+      border-radius: 12px;
       border: none;
       outline: none;
+      resize: none;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.4;
+      max-height: 150px;
+      overflow-y: auto;
     }
 
     button {
-      margin-left: 10px;
       padding: 14px 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #2563eb;
       color: white;
       cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.95);
     }
 
     button:disabled {
@@ -80,6 +90,12 @@
       border-radius: 14px;
       max-width: 60%;
       line-height: 1.4;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .user {
@@ -107,15 +123,15 @@
   <div id="chat"></div>
 
   <div id="centerBox">
-    <input id="input" placeholder="Skriv något..." />
-    <button id="sendBtn">Skicka</button>
+    <textarea id="input" rows="1" placeholder="Skriv något..."></textarea>
+    <button id="sendBtn">➤</button>
   </div>
 </div>
 
 <script>
 
 /* =========================================================
-   📦 STATE (localStorage)
+   📦 STATE
    ========================================================= */
 
 let history = JSON.parse(localStorage.getItem("chat_history")) || [];
@@ -155,9 +171,14 @@ history.forEach(msg => {
   addMessage(msg.content, msg.role === "user" ? "user" : "ai");
 });
 
-if (history.length > 0) {
-  document.body.classList.add("chat-started");
-}
+/* =========================================================
+   📏 AUTO RESIZE TEXTAREA
+   ========================================================= */
+
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+});
 
 /* =========================================================
    🚀 SEND
@@ -168,15 +189,13 @@ async function send() {
   const text = input.value.trim();
   if (!text) return;
 
-  // 🟢 aktivera chatläge
-  document.body.classList.add("chat-started");
-
   addMessage(text, "user");
 
   history.push({ role: "user", content: text });
   saveHistory();
 
   input.value = "";
+  input.style.height = "auto";
   input.disabled = true;
   button.disabled = true;
 
@@ -210,14 +229,10 @@ async function send() {
       });
 
       saveHistory();
-
-    } else {
-      addMessage("⚠️ Inget svar från AI", "ai");
     }
 
   } catch (err) {
     loading.remove();
-    console.error(err);
     addMessage("❌ Kunde inte nå servern", "ai");
   }
 
@@ -227,14 +242,21 @@ async function send() {
 }
 
 /* =========================================================
-   ⌨️ EVENTS
+   ⌨️ KEYBOARD LOGIC
    ========================================================= */
 
-button.addEventListener("click", send);
+input.addEventListener("keydown", e => {
 
-input.addEventListener("keypress", e => {
-  if (e.key === "Enter") send();
+  // ENTER = skicka
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+
+  // SHIFT+ENTER = ny rad (default)
 });
+
+button.addEventListener("click", send);
 
 </script>
 
