@@ -28,7 +28,7 @@ export default {
 
 
       /* =========================================================
-         🧠 INPUT NORMALIZATION (MER ROBUST)
+         🧠 INPUT NORMALIZATION
          ========================================================= */
 
       let input = "";
@@ -60,14 +60,20 @@ export default {
 
 
       /* =========================================================
-         🧠 MODE SYSTEM (SÄKRARE + FLEXIBEL)
+         🧠 MODE + SUBJECT SYSTEM (🔥 NY)
          ========================================================= */
 
       const allowedModes = ["advisor", "friend", "teacher"];
       const mode = allowedModes.includes(body.mode) ? body.mode : "advisor";
 
+      const subject = (body.subject || "general").toLowerCase();
 
-      function getPrompt(mode, input) {
+
+      function getPrompt(mode, subject, input) {
+
+        /* =====================================================
+           🧠 RÅDGIVARE
+           ===================================================== */
 
         if (mode === "advisor") {
           return `
@@ -76,45 +82,105 @@ You are a sharp, experienced advisor.
 Rules:
 - Be direct
 - Challenge weak thinking
-- Be practical and concrete
+- Be practical
 
 Structure:
 1. Core insight
-2. One clear advice
+2. One advice
 3. One risk
-4. One follow-up question
+4. One question
 
 Conversation:
 ${input}
 `;
         }
+
+
+        /* =====================================================
+           🧑 VÄN
+           ===================================================== */
 
         if (mode === "friend") {
           return `
 You are a smart, relaxed friend.
 
-- Be clear and human
-- Explain simply
-- Keep it natural
+- Talk naturally
+- Keep it simple
+- Be supportive
 
 Conversation:
 ${input}
 `;
         }
 
+
+        /* =====================================================
+           👨‍🏫 LÄRARE + SUBJECT (🔥 HÄR MAGIN HÄNDER)
+           ===================================================== */
+
         if (mode === "teacher") {
-          return `
-You are an expert teacher.
+
+          // 🔢 MATEMATIK
+          if (subject === "math") {
+            return `
+You are a math teacher.
 
 - Explain step by step
+- Show calculations clearly
+- Break down problems
+- Use simple examples
+
+Conversation:
+${input}
+`;
+          }
+
+          // 🇸🇪 SVENSKA
+          if (subject === "swedish") {
+            return `
+You are a Swedish language teacher.
+
+- Explain grammar simply
+- Improve sentences
+- Give examples
+
+Conversation:
+${input}
+`;
+          }
+
+          // 💻 PROGRAMMERING
+          if (subject === "coding") {
+            return `
+You are a programming teacher.
+
+- Explain step by step
+- Show code examples
 - Assume beginner
-- Use examples
 - Be very clear
 
 Conversation:
 ${input}
 `;
+          }
+
+          // fallback teacher
+          return `
+You are a general teacher.
+
+- Explain clearly
+- Use examples
+- Be easy to understand
+
+Conversation:
+${input}
+`;
         }
+
+
+        /* =====================================================
+           🔁 DEFAULT
+           ===================================================== */
 
         return `
 You are a helpful AI.
@@ -124,11 +190,11 @@ ${input}
 `;
       }
 
-      const prompt = getPrompt(mode, input);
+      const prompt = getPrompt(mode, subject, input);
 
 
       /* =========================================================
-         🤖 OPENAI REQUEST (OPTIMERAD)
+         🤖 OPENAI REQUEST
          ========================================================= */
 
       const aiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -140,18 +206,14 @@ ${input}
         body: JSON.stringify({
           model: "gpt-4o-mini",
           input: prompt,
-
-          // 🔥 NYTT: bättre svarskvalitet
           temperature: 0.7,
-
-          // 🔥 NYTT: begränsa längd (undvik spam)
           max_output_tokens: 500
         })
       });
 
 
       /* =========================================================
-         ⚠️ OPENAI ERROR HANDLING (FÖRBÄTTRAD)
+         ⚠️ ERROR HANDLING
          ========================================================= */
 
       if (!aiResponse.ok) {
@@ -165,22 +227,14 @@ ${input}
 
 
       /* =========================================================
-         📤 RESPONSE PARSING (ROBUST+)
+         📤 RESPONSE PARSING
          ========================================================= */
 
       const data = await aiResponse.json();
 
-      let reply = null;
-
-      // 🔥 fallback-chain (olika API-format)
-      if (data.output_text) {
-        reply = data.output_text;
-      } else if (data.output?.[0]?.content) {
-        reply = data.output[0].content
-          .map(c => c.text || "")
-          .join(" ")
-          .trim();
-      }
+      let reply =
+        data.output_text ||
+        data.output?.[0]?.content?.map(c => c.text || "").join(" ").trim();
 
       if (!reply) {
         return json({
@@ -191,23 +245,12 @@ ${input}
 
 
       /* =========================================================
-         ✨ CLEANUP (snyggare output)
-         ========================================================= */
-
-      reply = reply.trim();
-
-
-      /* =========================================================
          📦 RETURN
          ========================================================= */
 
-      return json({ reply });
+      return json({ reply: reply.trim() });
 
     } catch (err) {
-
-      /* =========================================================
-         💥 SERVER CRASH (SÄKRARE)
-         ========================================================= */
 
       return json({
         error: "Server crash",
