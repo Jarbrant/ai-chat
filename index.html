@@ -3,6 +3,7 @@
 <head>
   <title>AI Chat</title>
 
+  <!-- 🎨 STYLE -->
   <style>
     body {
       margin: 0;
@@ -83,51 +84,101 @@
 
 <body>
 
+<!-- 🧠 HEADER -->
 <header>AI Chat</header>
 
+<!-- 💬 CHAT AREA -->
 <div id="chat"></div>
 
+<!-- ⌨️ INPUT -->
 <div id="inputArea">
   <input id="input" placeholder="Skriv något..." />
   <button id="sendBtn" onclick="send()">Skicka</button>
 </div>
 
 <script>
+
+/* =========================================================
+   📦 STATE (minne i browsern)
+   ========================================================= */
+
+// Här sparar vi hela konversationen
+// så AI kan "minnas"
+let history = [];
+
+
+/* =========================================================
+   🧰 DOM REFERENCES
+   ========================================================= */
+
 const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const button = document.getElementById("sendBtn");
 
-// ➕ visa meddelande
+
+/* =========================================================
+   💬 UI: visa meddelanden
+   ========================================================= */
+
 function addMessage(text, type, extra = "") {
   const div = document.createElement("div");
+
   div.className = "message " + type + " " + extra;
   div.innerText = text;
+
   chat.appendChild(div);
+
+  // auto-scroll
   chat.scrollTop = chat.scrollHeight;
+
   return div;
 }
 
-// 🚀 skicka
+
+/* =========================================================
+   🚀 HUVUDFUNKTION
+   ========================================================= */
+
 async function send() {
+
+  // 🧹 hämta & trimma input
   const text = input.value.trim();
   if (!text) return;
 
+  // 👤 visa user i UI
   addMessage(text, "user");
 
+  // 🧠 spara i minne
+  history.push({
+    role: "user",
+    content: text
+  });
+
+  // reset UI
   input.value = "";
   input.disabled = true;
   button.disabled = true;
 
+  // ⏳ loading message
   const loading = addMessage("AI tänker...", "ai", "loading");
 
   try {
+
+    /* =========================================================
+       🌐 API CALL
+       ========================================================= */
+
     const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
       method: "POST",
-      mode: "cors", // ✅ FIX
+      mode: "cors",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: text })
+
+      // 🔥 skickar HEL historik (detta gör den smartare)
+      body: JSON.stringify({
+        messages: history
+      })
     });
 
     console.log("Status:", res.status);
@@ -135,17 +186,35 @@ async function send() {
     const data = await res.json();
     console.log("Svar:", data);
 
+    // ta bort loading
     loading.remove();
 
+    /* =========================================================
+       🧠 HANTERA SVAR
+       ========================================================= */
+
     if (data.reply) {
+
+      // visa svar
       addMessage(data.reply, "ai");
+
+      // spara AI svar i minne
+      history.push({
+        role: "assistant",
+        content: data.reply
+      });
+
     } else if (data.error) {
+
       addMessage("⚠️ " + data.error, "ai");
+
     } else {
+
       addMessage("⚠️ Okänt svar från AI", "ai");
     }
 
   } catch (err) {
+
     loading.remove();
 
     console.error("FETCH ERROR:", err);
@@ -153,15 +222,21 @@ async function send() {
     addMessage("❌ Kunde inte nå servern", "ai");
   }
 
+  // återställ input
   input.disabled = false;
   button.disabled = false;
   input.focus();
 }
 
-// ENTER = skicka
+
+/* =========================================================
+   ⌨️ ENTER = skicka
+   ========================================================= */
+
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") send();
 });
+
 </script>
 
 </body>
