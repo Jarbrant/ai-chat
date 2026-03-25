@@ -3,7 +3,6 @@
 <head>
   <title>AI Chat</title>
 
-  <!-- 🎨 STYLE -->
   <style>
     body {
       margin: 0;
@@ -22,55 +21,50 @@
       border-bottom: 1px solid #1e293b;
     }
 
-    #chat {
+    #app {
       flex: 1;
+      position: relative;
+    }
+
+    #chat {
       padding: 20px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      height: 100%;
     }
 
-    .message {
-      margin-bottom: 12px;
-      max-width: 70%;
-      padding: 10px 14px;
-      border-radius: 12px;
-    }
-
-    .user {
-      background: #2563eb;
-      align-self: flex-end;
-    }
-
-    .ai {
-      background: #1e293b;
-      align-self: flex-start;
-    }
-
-    .loading {
-      opacity: 0.6;
-      font-style: italic;
-    }
-
-    #inputArea {
+    /* ✨ Center input */
+    #centerBox {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
-      padding: 10px;
-      border-top: 1px solid #1e293b;
+      width: 60%;
+      max-width: 600px;
+    }
+
+    /* 🔽 när chat startar */
+    body.chat-started #centerBox {
+      top: auto;
+      bottom: 10px;
+      transform: translateX(-50%);
     }
 
     input {
       flex: 1;
-      padding: 10px;
-      border-radius: 8px;
+      padding: 14px;
+      border-radius: 10px;
       border: none;
       outline: none;
     }
 
     button {
       margin-left: 10px;
-      padding: 10px 16px;
+      padding: 14px 18px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #2563eb;
       color: white;
       cursor: pointer;
@@ -79,6 +73,29 @@
     button:disabled {
       opacity: 0.5;
     }
+
+    .message {
+      margin: 10px 0;
+      padding: 12px 16px;
+      border-radius: 14px;
+      max-width: 60%;
+      line-height: 1.4;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: #2563eb;
+    }
+
+    .ai {
+      align-self: flex-start;
+      background: #1e293b;
+    }
+
+    .loading {
+      opacity: 0.6;
+      font-style: italic;
+    }
   </style>
 </head>
 
@@ -86,95 +103,86 @@
 
 <header>AI Chat</header>
 
-<!-- 🧠 WRAPPER -->
 <div id="app">
-
-  <!-- 💬 CHAT -->
   <div id="chat"></div>
 
-  <!-- ✨ CENTER INPUT (startläge) -->
   <div id="centerBox">
     <input id="input" placeholder="Skriv något..." />
-    <button id="sendBtn" onclick="send()">Skicka</button>
+    <button id="sendBtn">Skicka</button>
   </div>
-
 </div>
 
-</body>
+<script>
 
 /* =========================================================
-   📦 STATE (minne i browsern)
+   📦 STATE (localStorage)
    ========================================================= */
 
-// 🔹 Försök ladda tidigare konversation från localStorage
-// 🔹 Om inget finns → starta tom array
 let history = JSON.parse(localStorage.getItem("chat_history")) || [];
 
-// 🔹 Hjälpfunktion: spara historik varje gång den ändras
 function saveHistory() {
   localStorage.setItem("chat_history", JSON.stringify(history));
 }
 
 /* =========================================================
-   🧰 DOM REFERENCES
+   🧰 DOM
    ========================================================= */
 
 const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const button = document.getElementById("sendBtn");
 
-
 /* =========================================================
-   💬 UI: visa meddelanden
+   💬 UI
    ========================================================= */
 
 function addMessage(text, type, extra = "") {
   const div = document.createElement("div");
-
   div.className = "message " + type + " " + extra;
   div.innerText = text;
 
   chat.appendChild(div);
-
-  // auto-scroll
   chat.scrollTop = chat.scrollHeight;
 
   return div;
 }
 
 /* =========================================================
-   🚀 HUVUDFUNKTION (förbättrad + stabil)
+   🔄 LOAD HISTORY
+   ========================================================= */
+
+history.forEach(msg => {
+  addMessage(msg.content, msg.role === "user" ? "user" : "ai");
+});
+
+if (history.length > 0) {
+  document.body.classList.add("chat-started");
+}
+
+/* =========================================================
+   🚀 SEND
    ========================================================= */
 
 async function send() {
 
-  // 🧹 1. Hämta & validera input
   const text = input.value.trim();
   if (!text) return;
 
-  // 👤 2. Visa user i UI direkt
+  // 🟢 aktivera chatläge
+  document.body.classList.add("chat-started");
+
   addMessage(text, "user");
 
-  // 🧠 3. Spara i minne + localStorage
-  history.push({
-    role: "user",
-    content: text
-  });
-  saveHistory(); // 🔥 ny förbättring
+  history.push({ role: "user", content: text });
+  saveHistory();
 
-  // 🔒 4. Lås UI medan vi väntar
   input.value = "";
   input.disabled = true;
   button.disabled = true;
 
-  // ⏳ 5. Visa loading
   const loading = addMessage("AI tänker...", "ai", "loading");
 
   try {
-
-    /* =========================================================
-       🌐 API CALL (med historik)
-       ========================================================= */
 
     const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
       method: "POST",
@@ -183,68 +191,46 @@ async function send() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        messages: history // 🔥 skickar HEL konversation
+        messages: history
       })
     });
 
-    console.log("Status:", res.status);
-
-    // 🔴 extra skydd
-    if (!res.ok) {
-      throw new Error("Server svarade inte korrekt");
-    }
+    if (!res.ok) throw new Error("Server error");
 
     const data = await res.json();
-    console.log("Svar:", data);
 
-    // 🧹 ta bort loading
     loading.remove();
 
-    /* =========================================================
-       🧠 HANTERA SVAR
-       ========================================================= */
-
     if (data.reply) {
-
-      // 💬 visa AI svar
       addMessage(data.reply, "ai");
 
-      // 🧠 spara AI svar
       history.push({
         role: "assistant",
         content: data.reply
       });
 
-      saveHistory(); // 🔥 ny förbättring
-
-    } else if (data.error) {
-
-      addMessage("⚠️ " + data.error, "ai");
+      saveHistory();
 
     } else {
-
-      addMessage("⚠️ Okänt svar från AI", "ai");
+      addMessage("⚠️ Inget svar från AI", "ai");
     }
 
   } catch (err) {
-
-    // 🧹 ta bort loading
     loading.remove();
-
-    console.error("FETCH ERROR:", err);
-
+    console.error(err);
     addMessage("❌ Kunde inte nå servern", "ai");
   }
 
-  // 🔓 6. Återställ UI
   input.disabled = false;
   button.disabled = false;
   input.focus();
 }
 
 /* =========================================================
-   ⌨️ ENTER = skicka
+   ⌨️ EVENTS
    ========================================================= */
+
+button.addEventListener("click", send);
 
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") send();
