@@ -33,6 +33,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      scroll-behavior: smooth; /* ✨ smooth scroll */
     }
 
     /* 🧠 Input top */
@@ -51,7 +52,6 @@
       z-index: 10;
     }
 
-    /* ✍️ textarea */
     textarea {
       flex: 1;
       padding: 14px;
@@ -158,9 +158,26 @@ function addMessage(text, type, extra = "") {
   div.innerText = text;
 
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+
+  smartScroll(); // 🔥 bättre scroll
 
   return div;
+}
+
+/* =========================================================
+   🧠 SMART SCROLL (viktig!)
+   ========================================================= */
+
+function smartScroll() {
+  const isNearBottom =
+    chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
+
+  if (isNearBottom) {
+    chat.scrollTo({
+      top: chat.scrollHeight,
+      behavior: "smooth"
+    });
+  }
 }
 
 /* =========================================================
@@ -172,7 +189,7 @@ history.forEach(msg => {
 });
 
 /* =========================================================
-   📏 AUTO RESIZE TEXTAREA
+   📏 AUTO RESIZE
    ========================================================= */
 
 input.addEventListener("input", () => {
@@ -196,6 +213,7 @@ async function send() {
 
   input.value = "";
   input.style.height = "auto";
+
   input.disabled = true;
   button.disabled = true;
 
@@ -238,22 +256,18 @@ async function send() {
 
   input.disabled = false;
   button.disabled = false;
-  input.focus();
+  input.focus(); // 🔥 alltid redo att skriva igen
 }
 
 /* =========================================================
-   ⌨️ KEYBOARD LOGIC
+   ⌨️ KEYBOARD
    ========================================================= */
 
 input.addEventListener("keydown", e => {
-
-  // ENTER = skicka
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     send();
   }
-
-  // SHIFT+ENTER = ny rad (default)
 });
 
 button.addEventListener("click", send);
