@@ -10,95 +10,110 @@ export default {
     }
 
     if (request.method !== "POST") {
-      return new Response("Method not allowed", {
-        status: 405,
-        headers: corsHeaders()
-      });
+      return json({ error: "Method not allowed" }, 405);
     }
 
     try {
 
       /* =========================================================
-         📥 INPUT PARSING
+         📥 SAFE JSON PARSING
          ========================================================= */
 
-      const body = await request.json();
-      let input;
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400);
+      }
 
-      // 🧠 Case 1: full chat history
+      /* =========================================================
+         🧠 INPUT NORMALIZATION
+         ========================================================= */
+
+      let input = "";
+
       if (Array.isArray(body.messages)) {
+
+        // 🔥 begränsa historik (viktigt!)
+        const MAX_HISTORY = 20;
+
         input = body.messages
+          .slice(-MAX_HISTORY)
           .map(m => `${m.role}: ${m.content}`)
           .join("\n");
+
+      } else if (body.prompt || body.message) {
+
+        input = (body.prompt || body.message).trim();
+
+      } else {
+        return json({ error: "No input provided" }, 400);
       }
 
-      // 🧠 Case 2: single prompt fallback
-      else if (body.prompt || body.message) {
-        input = body.prompt || body.message;
-      }
-
-      // ❌ invalid input
-      else {
-        return new Response(JSON.stringify({
-          error: "No input provided"
-        }), {
-          status: 400,
-          headers: corsHeaders()
-        });
+      if (!input) {
+        return json({ error: "Empty input" }, 400);
       }
 
 
       /* =========================================================
-         🧠 AI MODES (PERSONALITY SYSTEM)
+         🧠 MODE SYSTEM
          ========================================================= */
+
+      const mode = body.mode || "advisor";
 
       function getPrompt(mode, input) {
 
+        /* 🧠 RÅDGIVARE */
         if (mode === "advisor") {
           return `
 You are a sharp, experienced advisor.
 
-Be direct. Challenge bad thinking. Be practical.
+Rules:
+- Be direct
+- Challenge weak thinking
+- Be practical and concrete
 
 Structure:
-- Core insight
-- One concrete advice
-- One risk
-- One follow-up question
+1. Core insight
+2. One clear advice
+3. One risk
+4. One follow-up question
 
 Conversation:
 ${input}
 `;
         }
 
+        /* 🧑‍🤝‍🧑 VÄN */
         if (mode === "friend") {
           return `
 You are a smart, relaxed friend.
 
-- Explain things simply
 - Be clear and human
-- No jargon unless needed
+- Explain simply
+- Keep it natural
 
 Conversation:
 ${input}
 `;
         }
 
+        /* 👨‍🏫 LÄRARE */
         if (mode === "teacher") {
           return `
 You are an expert teacher.
 
 - Explain step by step
-- Assume beginner level
-- Be VERY clear
+- Assume beginner
 - Use examples
+- Be very clear
 
 Conversation:
 ${input}
 `;
         }
 
-        // fallback
+        /* 🔁 DEFAULT */
         return `
 You are a helpful AI.
 
@@ -107,12 +122,6 @@ ${input}
 `;
       }
 
-
-      /* =========================================================
-         🤖 BUILD PROMPT (FIXED BUG HERE)
-         ========================================================= */
-
-      const mode = body.mode || "advisor";
       const prompt = getPrompt(mode, input);
 
 
@@ -120,7 +129,7 @@ ${input}
          🤖 OPENAI REQUEST
          ========================================================= */
 
-      const response = await fetch("https://api.openai.com/v1/responses", {
+      const aiResponse = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -134,66 +143,73 @@ ${input}
 
 
       /* =========================================================
-         ⚠️ ERROR HANDLING
+         ⚠️ OPENAI ERROR HANDLING
          ========================================================= */
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
 
-        return new Response(JSON.stringify({
+        return json({
           error: "OpenAI error",
           details: errorText
-        }), {
-          status: 500,
-          headers: corsHeaders()
-        });
+        }, 500);
       }
 
 
       /* =========================================================
-         📤 RESPONSE PARSING
+         📤 RESPONSE PARSING (ROBUST)
          ========================================================= */
 
-      const data = await response.json();
+      const data = await aiResponse.json();
 
       let reply =
         data.output_text ||
         data.output?.[0]?.content?.[0]?.text ||
-        "⚠️ No response from AI";
+        data.output?.[0]?.content?.map(c => c.text).join(" ") ||
+        null;
+
+      if (!reply) {
+        return json({
+          error: "No valid AI response",
+          raw: data
+        }, 500);
+      }
 
 
       /* =========================================================
-         📦 RETURN TO FRONTEND
+         📦 RETURN
          ========================================================= */
 
-      return new Response(JSON.stringify({ reply }), {
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders()
-        }
-      });
+      return json({ reply });
 
     } catch (err) {
 
       /* =========================================================
-         💥 SERVER ERROR
+         💥 SERVER CRASH
          ========================================================= */
 
-      return new Response(JSON.stringify({
+      return json({
         error: "Server crash",
         details: err.message
-      }), {
-        status: 500,
-        headers: corsHeaders()
-      });
+      }, 500);
     }
   }
 };
 
 
 /* =========================================================
-   🌐 CORS HELPERS
+   🧰 HELPERS
    ========================================================= */
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders()
+    }
+  });
+}
 
 function corsHeaders() {
   return {
