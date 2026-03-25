@@ -60,7 +60,7 @@ export default {
 
 
       /* =========================================================
-         🧠 MODE + SUBJECT SYSTEM (🔥 NY)
+         🧠 MODE + SUBJECT + CUSTOM PROMPT (🔥 NY CORE)
          ========================================================= */
 
       const allowedModes = ["advisor", "friend", "teacher"];
@@ -68,18 +68,34 @@ export default {
 
       const subject = (body.subject || "general").toLowerCase();
 
+      // 🔥 NYTT: frontend kan skicka egen AI-personlighet
+      const customPrompt = body.customPrompt || null;
 
-      function getPrompt(mode, subject, input) {
+
+      function getPrompt(mode, subject, customPrompt, input) {
 
         /* =====================================================
-           🧠 RÅDGIVARE
+           🚀 1. CUSTOM PROMPT (HÖGSTA PRIORITET)
+           ===================================================== */
+
+        if (customPrompt) {
+          return `
+${customPrompt}
+
+Conversation:
+${input}
+`;
+        }
+
+
+        /* =====================================================
+           🧠 2. RÅDGIVARE
            ===================================================== */
 
         if (mode === "advisor") {
           return `
 You are a sharp, experienced advisor.
 
-Rules:
 - Be direct
 - Challenge weak thinking
 - Be practical
@@ -97,7 +113,7 @@ ${input}
 
 
         /* =====================================================
-           🧑 VÄN
+           🧑 3. VÄN
            ===================================================== */
 
         if (mode === "friend") {
@@ -115,12 +131,12 @@ ${input}
 
 
         /* =====================================================
-           👨‍🏫 LÄRARE + SUBJECT (🔥 HÄR MAGIN HÄNDER)
+           👨‍🏫 4. LÄRARE (MED SUBJECT FALLBACK)
            ===================================================== */
 
         if (mode === "teacher") {
 
-          // 🔢 MATEMATIK
+          // 🔢 MATTE
           if (subject === "math") {
             return `
 You are a math teacher.
@@ -128,7 +144,6 @@ You are a math teacher.
 - Explain step by step
 - Show calculations clearly
 - Break down problems
-- Use simple examples
 
 Conversation:
 ${input}
@@ -138,9 +153,9 @@ ${input}
           // 🇸🇪 SVENSKA
           if (subject === "swedish") {
             return `
-You are a Swedish language teacher.
+You are a Swedish teacher.
 
-- Explain grammar simply
+- Explain grammar
 - Improve sentences
 - Give examples
 
@@ -149,28 +164,27 @@ ${input}
 `;
           }
 
-          // 💻 PROGRAMMERING
+          // 💻 KOD
           if (subject === "coding") {
             return `
 You are a programming teacher.
 
 - Explain step by step
-- Show code examples
+- Show examples
 - Assume beginner
-- Be very clear
 
 Conversation:
 ${input}
 `;
           }
 
-          // fallback teacher
+          // 🔁 fallback (t.ex fysik, ekonomi etc)
           return `
-You are a general teacher.
+You are an expert teacher in ${subject}.
 
 - Explain clearly
-- Use examples
-- Be easy to understand
+- Use simple examples
+- Teach step by step
 
 Conversation:
 ${input}
@@ -190,7 +204,7 @@ ${input}
 `;
       }
 
-      const prompt = getPrompt(mode, subject, input);
+      const prompt = getPrompt(mode, subject, customPrompt, input);
 
 
       /* =========================================================
