@@ -43,7 +43,7 @@
       background: #2563eb;
     }
 
-    /* 🧠 FOCUS BOX */
+    /* 🧠 FOCUS */
     #focusBox {
       padding: 16px 20px;
       border-bottom: 1px solid #1e293b;
@@ -146,14 +146,12 @@
 
 <header>AI Chat</header>
 
-<!-- 🧭 MODES -->
 <div id="modes">
   <button data-mode="advisor" class="active">Rådgivare</button>
   <button data-mode="friend">Vän</button>
   <button data-mode="teacher">Lärare</button>
 </div>
 
-<!-- 🧠 FOCUS -->
 <div id="focusBox">
   <div id="focusTitle">Vad ni pratar om</div>
   <div id="focusContent">–</div>
@@ -161,13 +159,11 @@
 
 <div id="app">
 
-  <!-- 🔝 INPUT -->
   <div id="inputBar">
     <textarea id="input" rows="1" placeholder="Skriv något..."></textarea>
     <button id="sendBtn">➤</button>
   </div>
 
-  <!-- 💬 CHAT -->
   <div id="chat"></div>
 
 </div>
@@ -179,10 +175,14 @@
    ========================================================= */
 
 let history = JSON.parse(localStorage.getItem("chat_history")) || [];
-let mode = "advisor";
+let mode = localStorage.getItem("chat_mode") || "advisor";
 
 function saveHistory() {
   localStorage.setItem("chat_history", JSON.stringify(history));
+}
+
+function saveMode() {
+  localStorage.setItem("chat_mode", mode);
 }
 
 /* =========================================================
@@ -195,24 +195,30 @@ const button = document.getElementById("sendBtn");
 const focus = document.getElementById("focusContent");
 
 /* =========================================================
-   🧭 MODE SWITCH (FIXAD BUG)
+   🧭 MODE SWITCH (STABIL + PERSISTENT)
    ========================================================= */
 
 document.querySelectorAll("#modes button").forEach(btn => {
+
+  if (btn.dataset.mode === mode) {
+    btn.classList.add("active");
+  }
+
   btn.addEventListener("click", () => {
 
     mode = btn.dataset.mode;
+    saveMode();
 
-    // 🔄 UI highlight
     document.querySelectorAll("#modes button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
 
-    // 🔥 VALFRITT: starta ny chatt vid byte
+    // 🔥 reset chat
     history = [];
     saveHistory();
     chat.innerHTML = "";
 
     addMessage("Ny chatt: " + btn.innerText, "ai");
+    focus.innerText = "–";
   });
 });
 
@@ -221,13 +227,13 @@ document.querySelectorAll("#modes button").forEach(btn => {
    ========================================================= */
 
 function addMessage(text, type, extra = "") {
+
   const div = document.createElement("div");
   div.className = "message " + type + " " + extra;
   div.innerText = text;
 
   chat.appendChild(div);
 
-  // 🔥 stabil scroll
   requestAnimationFrame(() => {
     chat.scrollTop = chat.scrollHeight;
   });
@@ -236,11 +242,15 @@ function addMessage(text, type, extra = "") {
 }
 
 /* =========================================================
-   🧠 FOCUS (BASERAD PÅ USER INPUT)
+   🧠 SMART FOCUS (BÄTTRE)
    ========================================================= */
 
 function updateFocus(text) {
-  focus.innerText = text.slice(0, 120);
+
+  // 🔥 ta första meningen istället
+  const clean = text.split(/[.!?]/)[0];
+
+  focus.innerText = clean.slice(0, 120);
 }
 
 /* =========================================================
@@ -270,8 +280,6 @@ async function send() {
   if (!text) return;
 
   addMessage(text, "user");
-
-  // 🧠 uppdatera fokus direkt
   updateFocus(text);
 
   history.push({ role: "user", content: text });
@@ -290,9 +298,7 @@ async function send() {
     const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
       method: "POST",
       mode: "cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: history,
         mode: mode
@@ -321,8 +327,10 @@ async function send() {
     }
 
   } catch (err) {
+
     loading.remove();
     addMessage("❌ Kunde inte nå servern", "ai");
+
     console.error(err);
   }
 
