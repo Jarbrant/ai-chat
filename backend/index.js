@@ -1,7 +1,6 @@
 export default {
   async fetch(request, env) {
 
-    // 🟢 CORS
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
@@ -16,10 +15,21 @@ export default {
     try {
       const body = await request.json();
 
-      // 🔥 Stöd både prompt och message (frontend mismatch fix)
-      const userInput = body.prompt || body.message;
+      let input;
 
-      if (!userInput) {
+      // ✅ NYTT: stöd för messages (minne)
+      if (Array.isArray(body.messages)) {
+
+        // gör om chat history → text
+        input = body.messages
+          .map(m => `${m.role}: ${m.content}`)
+          .join("\n");
+
+      } else if (body.prompt || body.message) {
+
+        input = body.prompt || body.message;
+
+      } else {
         return new Response(JSON.stringify({
           error: "No input provided"
         }), {
@@ -29,17 +39,18 @@ export default {
       }
 
       const prompt = `
-      You are a smart, direct AI that speaks like a real person.
+You are a smart, direct AI that speaks like a real person.
 
-      Rules:
-      - No generic answers
-      - Be concrete and useful
-      - If unsure, say it
-      - Keep answers short unless asked for more
-      - Sound like a knowledgeable friend, not a robot
+Rules:
+- No generic answers
+- Be concrete and useful
+- If unsure, say it
+- Keep answers short unless asked for more
+- Sound like a knowledgeable friend, not a robot
 
-      User: ${userInput}
-      `;
+Conversation:
+${input}
+`;
 
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
@@ -48,7 +59,7 @@ export default {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini", // ✅ FIXAD
+          model: "gpt-4o-mini",
           input: prompt
         })
       });
@@ -67,8 +78,7 @@ export default {
 
       const data = await response.json();
 
-      // 🧠 Robust parsing (funkar med olika svarstyper)
-      let reply =
+      const reply =
         data.output_text ||
         data.output?.[0]?.content?.[0]?.text ||
         "⚠️ No response from AI";
