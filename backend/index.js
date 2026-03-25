@@ -1,76 +1,94 @@
 export default {
   async fetch(request, env) {
 
-    // 🟢 CORS headers (återanvänds överallt)
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Content-Type": "application/json"
-    };
-
-    // 🟢 Hantera preflight (viktigt för browser)
+    // 🟢 CORS
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { headers: corsHeaders() });
     }
 
-    // 🔴 Endast POST tillåtet
     if (request.method !== "POST") {
-      return new Response("POST only", { status: 405, headers: corsHeaders });
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: corsHeaders()
+      });
     }
 
     try {
-      // 📥 Läs input
-      const { prompt } = await request.json();
+      const body = await request.json();
 
-      if (!prompt) {
-        return new Response(JSON.stringify({ error: "No prompt provided" }), {
+      // 🔥 Stöd både prompt och message (frontend mismatch fix)
+      const userInput = body.prompt || body.message;
+
+      if (!userInput) {
+        return new Response(JSON.stringify({
+          error: "No input provided"
+        }), {
           status: 400,
-          headers: corsHeaders
+          headers: corsHeaders()
         });
       }
 
-      // 🤖 OpenAI request
+      const prompt = `
+You are a direct, honest AI. Avoid generic phrases.
+
+User: ${userInput}
+`;
+
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-5.3",
+          model: "gpt-4o-mini", // ✅ FIXAD
           input: prompt
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        return new Response(JSON.stringify({ error: errorText }), {
+
+        return new Response(JSON.stringify({
+          error: "OpenAI error",
+          details: errorText
+        }), {
           status: 500,
-          headers: corsHeaders
+          headers: corsHeaders()
         });
       }
 
       const data = await response.json();
 
-      // 💬 Extrahera svar säkert
-      const reply =
+      // 🧠 Robust parsing (funkar med olika svarstyper)
+      let reply =
+        data.output_text ||
         data.output?.[0]?.content?.[0]?.text ||
-        "⚠️ Kunde inte läsa svar";
+        "⚠️ No response from AI";
 
       return new Response(JSON.stringify({ reply }), {
-        headers: corsHeaders
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders()
+        }
       });
 
     } catch (err) {
-
       return new Response(JSON.stringify({
-        error: "Server error",
+        error: "Server crash",
         details: err.message
       }), {
         status: 500,
-        headers: corsHeaders
+        headers: corsHeaders()
       });
     }
   }
 };
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS"
+  };
+}
