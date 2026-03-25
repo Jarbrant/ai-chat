@@ -1,10 +1,16 @@
 export default {
   async fetch(request, env) {
 
+    /* =========================================================
+       🌐 CORS & REQUEST VALIDATION
+       ========================================================= */
+
+    // Hantera preflight (browser krav)
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
 
+    // Tillåt endast POST
     if (request.method !== "POST") {
       return new Response("Method not allowed", {
         status: 405,
@@ -13,23 +19,33 @@ export default {
     }
 
     try {
-      const body = await request.json();
 
+      /* =========================================================
+         📥 INPUT PARSING
+         ========================================================= */
+
+      const body = await request.json();
       let input;
 
-      // ✅ NYTT: stöd för messages (minne)
+      // 🧠 Fall 1: vi får hela konversationen (bäst)
       if (Array.isArray(body.messages)) {
 
-        // gör om chat history → text
+        // Gör om historik → textformat
         input = body.messages
           .map(m => `${m.role}: ${m.content}`)
           .join("\n");
 
-      } else if (body.prompt || body.message) {
+      }
+
+      // 🧠 Fall 2: fallback (enstaka prompt)
+      else if (body.prompt || body.message) {
 
         input = body.prompt || body.message;
 
-      } else {
+      }
+
+      // ❌ Fel input
+      else {
         return new Response(JSON.stringify({
           error: "No input provided"
         }), {
@@ -38,19 +54,44 @@ export default {
         });
       }
 
+
+      /* =========================================================
+         🧠 AI PROMPT (RÅDGIVARE MODE)
+         ========================================================= */
+
       const prompt = `
-You are a smart, direct AI that speaks like a real person.
+You are a sharp, honest advisor.
+
+Your job is NOT to just answer.
+Your job is to help the user think better.
 
 Rules:
-- No generic answers
-- Be concrete and useful
-- If unsure, say it
-- Keep answers short unless asked for more
-- Sound like a knowledgeable friend, not a robot
+- Be direct and clear (no fluff)
+- Challenge weak ideas
+- Ask follow-up questions when useful
+- Give concrete advice, not generic tips
+- If something is unclear → ask instead of guessing
+- If the user is making a bad decision → say it
+
+Style:
+- Sound like a smart, experienced person
+- Not like an assistant
+- Not overly polite
+- Not robotic
+
+Always include:
+1. Your main advice
+2. One risk the user might be missing
+3. One follow-up question
 
 Conversation:
 ${input}
 `;
+
+
+      /* =========================================================
+         🤖 OPENAI REQUEST
+         ========================================================= */
 
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
@@ -64,6 +105,11 @@ ${input}
         })
       });
 
+
+      /* =========================================================
+         ⚠️ ERROR HANDLING
+         ========================================================= */
+
       if (!response.ok) {
         const errorText = await response.text();
 
@@ -76,12 +122,23 @@ ${input}
         });
       }
 
+
+      /* =========================================================
+         📤 RESPONSE PARSING
+         ========================================================= */
+
       const data = await response.json();
 
+      // Robust parsing (OpenAI kan returnera olika format)
       const reply =
         data.output_text ||
         data.output?.[0]?.content?.[0]?.text ||
         "⚠️ No response from AI";
+
+
+      /* =========================================================
+         📦 RETURN TO FRONTEND
+         ========================================================= */
 
       return new Response(JSON.stringify({ reply }), {
         headers: {
@@ -91,6 +148,11 @@ ${input}
       });
 
     } catch (err) {
+
+      /* =========================================================
+         💥 SERVER ERROR
+         ========================================================= */
+
       return new Response(JSON.stringify({
         error: "Server crash",
         details: err.message
@@ -101,6 +163,11 @@ ${input}
     }
   }
 };
+
+
+/* =========================================================
+   🌐 CORS HELPERS
+   ========================================================= */
 
 function corsHeaders() {
   return {
