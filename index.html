@@ -21,6 +21,44 @@
       border-bottom: 1px solid #1e293b;
     }
 
+    /* 🧭 MODES */
+    #modes {
+      display: flex;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    #modes button {
+      background: #1e293b;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      color: white;
+      cursor: pointer;
+    }
+
+    #modes button.active {
+      background: #2563eb;
+    }
+
+    /* 🧠 FOCUS BOX */
+    #focusBox {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e293b;
+      background: #020617;
+    }
+
+    #focusTitle {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    #focusContent {
+      font-size: 18px;
+      font-weight: 500;
+    }
+
     #app {
       flex: 1;
       display: flex;
@@ -29,21 +67,17 @@
 
     #chat {
       flex: 1;
-      margin-top: 70px; /* istället för padding-top bug */
       padding: 20px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      scroll-behavior: smooth;
+      gap: 10px;
     }
 
-    #centerBox {
-      position: fixed;
+    /* 🔝 INPUT FIXED TOP */
+    #inputBar {
+      position: sticky;
       top: 0;
-      width: 100%;
-      max-width: 800px;
-      left: 50%;
-      transform: translateX(-50%);
       display: flex;
       gap: 10px;
       padding: 10px;
@@ -61,23 +95,16 @@
       resize: none;
       font-family: inherit;
       font-size: 14px;
-      line-height: 1.4;
       max-height: 150px;
-      overflow-y: auto;
     }
 
     button {
-      padding: 14px 18px;
+      padding: 12px 16px;
       border: none;
       border-radius: 12px;
       background: #2563eb;
       color: white;
       cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:active {
-      transform: scale(0.95);
     }
 
     button:disabled {
@@ -85,17 +112,10 @@
     }
 
     .message {
-      margin: 10px 0;
       padding: 12px 16px;
       border-radius: 14px;
       max-width: 60%;
       line-height: 1.4;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
     }
 
     .user {
@@ -119,13 +139,30 @@
 
 <header>AI Chat</header>
 
-<div id="app">
-  <div id="chat"></div>
+<!-- 🧭 MODES -->
+<div id="modes">
+  <button onclick="setMode('advisor')" class="active">Rådgivare</button>
+  <button onclick="setMode('friend')">Vän</button>
+  <button onclick="setMode('teacher')">Lärare</button>
+</div>
 
-  <div id="centerBox">
+<!-- 🧠 FOCUS -->
+<div id="focusBox">
+  <div id="focusTitle">Vad ni pratar om</div>
+  <div id="focusContent">–</div>
+</div>
+
+<div id="app">
+
+  <!-- 🔝 INPUT -->
+  <div id="inputBar">
     <textarea id="input" rows="1" placeholder="Skriv något..."></textarea>
     <button id="sendBtn">➤</button>
   </div>
+
+  <!-- 💬 CHAT -->
+  <div id="chat"></div>
+
 </div>
 
 <script>
@@ -135,6 +172,7 @@
    ========================================================= */
 
 let history = JSON.parse(localStorage.getItem("chat_history")) || [];
+let mode = "advisor";
 
 function saveHistory() {
   localStorage.setItem("chat_history", JSON.stringify(history));
@@ -147,6 +185,21 @@ function saveHistory() {
 const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const button = document.getElementById("sendBtn");
+const focus = document.getElementById("focusContent");
+
+/* =========================================================
+   🧭 MODE SWITCH
+   ========================================================= */
+
+function setMode(newMode) {
+  mode = newMode;
+
+  document.querySelectorAll("#modes button").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  event.target.classList.add("active");
+}
 
 /* =========================================================
    💬 UI
@@ -158,37 +211,30 @@ function addMessage(text, type, extra = "") {
   div.innerText = text;
 
   chat.appendChild(div);
-
-  smartScroll();
+  chat.scrollTop = chat.scrollHeight;
 
   return div;
 }
 
 /* =========================================================
-   🧠 SCROLL (STABIL VERSION)
+   🧠 FOCUS UPDATE
    ========================================================= */
 
-function smartScroll() {
-  requestAnimationFrame(() => {
-    chat.scrollTop = chat.scrollHeight;
-  });
+function updateFocus(text) {
+  focus.innerText = text.slice(0, 120);
 }
 
 /* =========================================================
-   🔄 LOAD HISTORY
+   🔄 LOAD HISTORY (SMART)
    ========================================================= */
 
-history.forEach(msg => {
+const MAX_VISIBLE = 20;
+history.slice(-MAX_VISIBLE).forEach(msg => {
   addMessage(msg.content, msg.role === "user" ? "user" : "ai");
 });
 
-/* 🧭 FIX: start alltid högst upp */
-setTimeout(() => {
-  chat.scrollTop = 0;
-}, 0);
-
 /* =========================================================
-   📏 AUTO RESIZE TEXTAREA
+   📏 AUTO RESIZE
    ========================================================= */
 
 input.addEventListener("input", () => {
@@ -227,7 +273,8 @@ async function send() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        messages: history
+        messages: history,
+        mode: mode
       })
     });
 
@@ -246,6 +293,9 @@ async function send() {
       });
 
       saveHistory();
+
+      // 🧠 uppdatera fokus
+      updateFocus(data.reply);
     }
 
   } catch (err) {
