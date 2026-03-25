@@ -5,12 +5,10 @@ export default {
        🌐 CORS & REQUEST VALIDATION
        ========================================================= */
 
-    // Hantera preflight (browser krav)
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
 
-    // Tillåt endast POST
     if (request.method !== "POST") {
       return new Response("Method not allowed", {
         status: 405,
@@ -27,24 +25,19 @@ export default {
       const body = await request.json();
       let input;
 
-      // 🧠 Fall 1: vi får hela konversationen (bäst)
+      // 🧠 Case 1: full chat history
       if (Array.isArray(body.messages)) {
-
-        // Gör om historik → textformat
         input = body.messages
           .map(m => `${m.role}: ${m.content}`)
           .join("\n");
-
       }
 
-      // 🧠 Fall 2: fallback (enstaka prompt)
+      // 🧠 Case 2: single prompt fallback
       else if (body.prompt || body.message) {
-
         input = body.prompt || body.message;
-
       }
 
-      // ❌ Fel input
+      // ❌ invalid input
       else {
         return new Response(JSON.stringify({
           error: "No input provided"
@@ -55,15 +48,14 @@ export default {
       }
 
 
-     /* =========================================================
-   🧠 AI MODES (personligheter)
-   ========================================================= */
+      /* =========================================================
+         🧠 AI MODES (PERSONALITY SYSTEM)
+         ========================================================= */
 
-function getPrompt(mode, input) {
+      function getPrompt(mode, input) {
 
-  // 🧠 RÅDGIVARE
-  if (mode === "advisor") {
-    return `
+        if (mode === "advisor") {
+          return `
 You are a sharp, experienced advisor.
 
 Be direct. Challenge bad thinking. Be practical.
@@ -77,46 +69,53 @@ Structure:
 Conversation:
 ${input}
 `;
-  }
+        }
 
-  // 🧑‍🤝‍🧑 VÄN
-  if (mode === "friend") {
-    return `
+        if (mode === "friend") {
+          return `
 You are a smart, relaxed friend.
 
 - Explain things simply
-- Be clear and helpful
+- Be clear and human
 - No jargon unless needed
-- Feel human and easy to talk to
 
 Conversation:
 ${input}
 `;
-  }
+        }
 
-  // 👨‍🏫 LÄRARE (kod etc)
-  if (mode === "teacher") {
-    return `
+        if (mode === "teacher") {
+          return `
 You are an expert teacher.
 
 - Explain step by step
-- Assume the user is learning
+- Assume beginner level
 - Be VERY clear
 - Use examples
 
 Conversation:
 ${input}
 `;
-  }
+        }
 
-  // fallback
-  return `
+        // fallback
+        return `
 You are a helpful AI.
 
 Conversation:
 ${input}
 `;
-}
+      }
+
+
+      /* =========================================================
+         🤖 BUILD PROMPT (FIXED BUG HERE)
+         ========================================================= */
+
+      const mode = body.mode || "advisor";
+      const prompt = getPrompt(mode, input);
+
+
       /* =========================================================
          🤖 OPENAI REQUEST
          ========================================================= */
@@ -157,8 +156,7 @@ ${input}
 
       const data = await response.json();
 
-      // Robust parsing (OpenAI kan returnera olika format)
-      const reply =
+      let reply =
         data.output_text ||
         data.output?.[0]?.content?.[0]?.text ||
         "⚠️ No response from AI";
