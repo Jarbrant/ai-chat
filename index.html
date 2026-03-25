@@ -138,38 +138,38 @@ function addMessage(text, type, extra = "") {
   return div;
 }
 
-
 /* =========================================================
-   🚀 HUVUDFUNKTION
+   🚀 HUVUDFUNKTION (förbättrad + stabil)
    ========================================================= */
 
 async function send() {
 
-  // 🧹 hämta & trimma input
+  // 🧹 1. Hämta & validera input
   const text = input.value.trim();
   if (!text) return;
 
-  // 👤 visa user i UI
+  // 👤 2. Visa user i UI direkt
   addMessage(text, "user");
 
-  // 🧠 spara i minne
+  // 🧠 3. Spara i minne + localStorage
   history.push({
     role: "user",
     content: text
   });
+  saveHistory(); // 🔥 ny förbättring
 
-  // reset UI
+  // 🔒 4. Lås UI medan vi väntar
   input.value = "";
   input.disabled = true;
   button.disabled = true;
 
-  // ⏳ loading message
+  // ⏳ 5. Visa loading
   const loading = addMessage("AI tänker...", "ai", "loading");
 
   try {
 
     /* =========================================================
-       🌐 API CALL
+       🌐 API CALL (med historik)
        ========================================================= */
 
     const res = await fetch("https://ai-chat.andersmenyit.workers.dev", {
@@ -178,19 +178,22 @@ async function send() {
       headers: {
         "Content-Type": "application/json"
       },
-
-      // 🔥 skickar HEL historik (detta gör den smartare)
       body: JSON.stringify({
-        messages: history
+        messages: history // 🔥 skickar HEL konversation
       })
     });
 
     console.log("Status:", res.status);
 
+    // 🔴 extra skydd
+    if (!res.ok) {
+      throw new Error("Server svarade inte korrekt");
+    }
+
     const data = await res.json();
     console.log("Svar:", data);
 
-    // ta bort loading
+    // 🧹 ta bort loading
     loading.remove();
 
     /* =========================================================
@@ -199,14 +202,16 @@ async function send() {
 
     if (data.reply) {
 
-      // visa svar
+      // 💬 visa AI svar
       addMessage(data.reply, "ai");
 
-      // spara AI svar i minne
+      // 🧠 spara AI svar
       history.push({
         role: "assistant",
         content: data.reply
       });
+
+      saveHistory(); // 🔥 ny förbättring
 
     } else if (data.error) {
 
@@ -219,6 +224,7 @@ async function send() {
 
   } catch (err) {
 
+    // 🧹 ta bort loading
     loading.remove();
 
     console.error("FETCH ERROR:", err);
@@ -226,12 +232,11 @@ async function send() {
     addMessage("❌ Kunde inte nå servern", "ai");
   }
 
-  // återställ input
+  // 🔓 6. Återställ UI
   input.disabled = false;
   button.disabled = false;
   input.focus();
 }
-
 
 /* =========================================================
    ⌨️ ENTER = skicka
